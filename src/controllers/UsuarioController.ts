@@ -11,7 +11,14 @@ export class UsuarioController {
     // POST /usuarios/registrar
     public registrar = async (req: Request, res: Response): Promise<Response> => {
         try {
-            // Assumimos que o corpo da requisição já contém nome, email, senha e cargo_id
+            // Assumimos que o corpo da requisição já contém nome, email, senha e cargo_nome
+            const { nome, email, senha, telefone, cargo_nome } = req.body;
+
+            // Validação mínima
+            if (!nome || !email || !senha || !cargo_nome) {
+                return res.status(400).json({ message: "Nome, email, senha e cargo_nome são obrigatórios." });
+            }
+            
             const novoUsuario = await this.usuarioService.registrarUsuario(req.body);
             
             // 201 Created com os dados públicos do usuário

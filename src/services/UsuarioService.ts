@@ -1,4 +1,5 @@
 import { UsuarioRepository } from "../repositories/UsuarioRepository";
+import { CargoRepository } from "../repositories/CargoRepository";
 import bcrypt from 'bcryptjs';
 import jwt, { Secret, SignOptions } from 'jsonwebtoken';
 
@@ -7,7 +8,7 @@ export interface UsuarioInput {
     email: string;
     senha: string;
     telefone?: string;
-    cargo_id: string; // O cargo é essencial no modelo de dados
+    cargo_nome: string;
 }
 
 // O número de rounds de hash (custo)
@@ -19,9 +20,11 @@ const JWT_EXPIRES_IN: string = process.env.JWT_EXPIRES_IN || '1h';
 
 export class UsuarioService {
     private usuarioRepository: UsuarioRepository;
+    private cargoRepository: CargoRepository;
 
     constructor() {
         this.usuarioRepository = new UsuarioRepository();
+        this.cargoRepository = new CargoRepository();
     }
 
     // Função de registro (Criação)
@@ -32,6 +35,14 @@ export class UsuarioService {
             throw new Error("O email fornecido já está em uso.");
         }
 
+        // Lógica de cargos
+        const cargo = await this.cargoRepository.buscarPorNome(data.cargo_nome);
+        if (!cargo) {
+            throw new Error(`Cargo "${data.cargo_nome}" não encontrado.`);
+        }
+        
+        const cargo_id = cargo.id;
+
         // 2. Hash da Senha
         const senha_hash = await bcrypt.hash(data.senha, SALT_ROUNDS);
 
@@ -40,7 +51,7 @@ export class UsuarioService {
             nome: data.nome,
             email: data.email,
             telefone: data.telefone,
-            cargo_id: data.cargo_id,
+            cargo_id: cargo_id,
             senha_hash: senha_hash, // Passa o hash, não a senha
         };
 
