@@ -1,11 +1,22 @@
 import supabase from '../supabaseClient';
 
+// 1. DEFINE E EXPORTA a interface UsuarioInput (Usada no Service)
 export interface UsuarioInput {
     nome: string;
     email: string;
     senha: string;
     telefone?: string;
-    cargo_id: string; 
+    cargo_id: string;
+    senha_hash: string;
+}
+
+// 2. DEFINE E EXPORTA a interface Usuario (O que o banco retorna)
+export interface Usuario extends Omit<UsuarioInput, 'senha' | 'senha_hash'> {
+    id: string;
+    cargo_id: string;
+    ativo: boolean;
+    criado_em: string;
+    senha_hash: string;
 }
 
 export class UsuarioRepository {
@@ -41,5 +52,19 @@ export class UsuarioRepository {
 
         // Retorna o objeto completo, incluindo o senha_hash, necessário para a Service
         return data; 
+    }
+
+    async buscarPorId(id: string): Promise<Usuario | null> {
+        const { data, error } = await supabase
+            .from('usuario')
+            .select('*, cargo_id') // Selecionar tudo, incluindo o cargo_id
+            .eq('id', id)
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            console.error('ERRO SUPABASE (Buscar Usuário por ID):', error);
+            throw new Error('Falha ao buscar usuário por ID.');
+        }
+        return data || null;
     }
 }
