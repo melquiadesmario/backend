@@ -17,7 +17,7 @@ O sistema suporta a gestão completa das operações de uma barbearia, diferenci
 | :--- | :--- | :--- | :--- |
 | **Administrador** | Gerenciar Serviços, Produtos e Usuários (CRUD completo) | `POST`, `GET`, `PUT`, `DELETE` | 🚧 Em Andamento |
 | **Cliente** | Cadastro, Login, Visualizar Serviços e Realizar Agendamentos. | `POST`, `GET` | 🚧 Em Andamento |
-| **Geral** | Autenticação e Autorização (JWT). | `/login`, `/register` | 🚧 Em Andamento |
+| **Geral** | Autenticação e Autorização (JWT). | `/login`, `/register` | 🚧 Concluído |
 
 ---
 
