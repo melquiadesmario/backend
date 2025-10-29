@@ -1,5 +1,16 @@
 import supabase from '../supabaseClient';
 
+export interface Servico { 
+    id: string;
+    nome: string;
+    descricao: string;
+    preco: number; // Tipo Numeric do banco
+    duracao_minutos: number; // Tipo int4 do banco
+    ativo: boolean;
+}
+
+export interface ServicoInput extends Omit<Servico, 'id' | 'ativo'> {}
+
 export class ServicoRepository {
 
     async listar() {
