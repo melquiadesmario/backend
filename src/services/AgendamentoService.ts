@@ -10,6 +10,8 @@ interface AgendamentoPayload {
     dataHoraAgendada: string;
 }
 
+// Define os status válidos para o sistema
+const STATUS_VALIDOS = ['PENDENTE', 'CONFIRMADO', 'CONCLUIDO', 'CANCELADO'];
 // Status inicial para novos agendamentos
 const STATUS_INICIAL = 'PENDENTE';
 
@@ -63,8 +65,41 @@ export class AgendamentoService {
         return novoAgendamento;
     }
     
-    // Lista todos os agendamentos (por exemplo, para o ADMIN)
+    // Atualizar Status
+    async atualizarStatus(agendamentoId: string, novoStatus: string): Promise<Agendamento> {
+        // 1. Validação do novo status
+        const statusUpper = novoStatus.toUpperCase();
+        if (!STATUS_VALIDOS.includes(statusUpper)) {
+            throw new Error(`Status inválido. Status permitidos: ${STATUS_VALIDOS.join(', ')}.`);
+        }
+
+        // 2. Chamar o Repositório
+        const agendamentoAtualizado = await this.agendamentoRepository.atualizarStatus(
+            agendamentoId,
+            statusUpper // Sempre salva em caixa alta
+        );
+
+        // 3. Checagem de existência
+        if (!agendamentoAtualizado) {
+            throw new Error('Agendamento não encontrado para atualização.');
+        }
+
+        return agendamentoAtualizado;
+    }
+
+    // Lista todos os agendamentos
     async listarAgendamentos(): Promise<Agendamento[]> {
         return this.agendamentoRepository.listar();
+    }
+
+    // Deletar Agendamento
+    async deletarAgendamento(agendamentoId: string): Promise<void> {
+        // No momento, apenas verificamos se a deleção falha no banco.
+        // O controle de quem pode deletar será feito no Controller/Middleware.
+        try {
+            await this.agendamentoRepository.deletar(agendamentoId);
+        } catch (error: any) {
+            throw new Error(`Não foi possível deletar o agendamento: ${error.message}`);
+        }
     }
 }

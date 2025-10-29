@@ -31,7 +31,7 @@ export class AgendamentoRepository {
         return novoAgendamento as Agendamento;
     }
 
-    // LISTAR TODOS (por enquanto, para o ADMIN)
+    // LISTAR TODOS
     async listar(): Promise<Agendamento[]> {
         const { data, error } = await supabase
             .from('agendamento')
@@ -43,5 +43,41 @@ export class AgendamentoRepository {
         }
 
         return data as Agendamento[];
+    }
+
+    // Atualizar Status
+    async atualizarStatus(id: string, novoStatus: string): Promise<Agendamento | null> {
+        const { data, error } = await supabase
+            .from('agendamento')
+            .update({ status: novoStatus })
+            .eq('id', id)
+            .select() // Retorna a linha atualizada
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            console.error('ERRO SUPABASE (Atualizar Status Agendamento):', error);
+            throw new Error('Falha ao atualizar status do agendamento.');
+        }
+
+        // Retorna a linha atualizada, ou null se não encontrada
+        return data as Agendamento || null; 
+    }
+
+    // Deletar Agendamento
+    async deletar(id: string): Promise<boolean> {
+        // Apenas deletamos e verificamos se houve um erro no processo.
+        // Se a linha não existir, error será nulo e a operação será considerada sucesso (204 No Content)
+        const { error } = await supabase
+            .from('agendamento')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error('ERRO SUPABASE (Deletar Agendamento):', error);
+            throw new Error('Falha ao deletar agendamento.');
+        }
+
+        // Se não houve erro, a operação foi bem-sucedida
+        return true; 
     }
 }

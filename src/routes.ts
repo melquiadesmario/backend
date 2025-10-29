@@ -19,6 +19,7 @@ router.post('/usuarios/login', usuarioController.login);
 // Define as permissões para a manipulação de Serviços
 const ADMIN_ONLY = ['ADMIN']; // Apenas o cargo ADMIN pode manipular
 const CLIENTE_ONLY = ['CLIENTE']; // Apenas o CLIENTE pode criar agendamentos
+const ADMIN_CLIENTE = ['ADMIN', 'CLIENTE']; // Admin e Cliente poderão deletar
 const ADMIN_BARBEIRO = ['ADMIN', 'BARBEIRO']; // Admin e Barbeiro poderão listar
 
 // ------------------------------------
@@ -36,8 +37,11 @@ router.delete('/servicos/:id', authMiddleware, servicoController.deletar);
 // ------------------------------------
 // Criação: Apenas CLIENTE
 router.post('/agendamentos', authMiddleware, roleMiddleware(CLIENTE_ONLY), agendamentoController.criar);
-
 // Listagem: ADMIN ou BARBEIRO
 router.get('/agendamentos', authMiddleware, roleMiddleware(ADMIN_BARBEIRO), agendamentoController.listar);
+// Atualização de Status: Apenas ADMIN ou BARBEIRO
+router.put('/agendamentos/:id/status', authMiddleware, roleMiddleware(ADMIN_BARBEIRO), agendamentoController.atualizarStatus);
+// Exclusão: Apenas ADMIN ou CLIENTE (para cancelar)
+router.delete('/agendamentos/:id', authMiddleware, roleMiddleware(ADMIN_CLIENTE), agendamentoController.deletar);
 
 export { router };

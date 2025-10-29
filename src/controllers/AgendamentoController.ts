@@ -53,14 +53,51 @@ export class AgendamentoController {
             return res.status(500).json({ message: `Falha ao agendar serviço: ${error.message}` });
         }
     };
+
+    // Atualizar Status
+    public atualizarStatus = async (req: Request, res: Response): Promise<Response> => {
+        try {
+            const { id } = req.params; // ID do Agendamento vem do URL
+            const { status } = req.body; // Novo status vem do Body
+
+            if (!status) {
+                return res.status(400).json({ message: 'O novo status é obrigatório.' });
+            }
+
+            const agendamentoAtualizado = await this.agendamentoService.atualizarStatus(id, status);
+
+            return res.status(200).json(agendamentoAtualizado);
+        } catch (error: any) {
+            console.error('Erro ao atualizar status do agendamento:', error.message);
+            if (error.message.includes('não encontrado') || error.message.includes('inválido')) {
+                return res.status(400).json({ message: error.message });
+            }
+            return res.status(500).json({ message: 'Falha ao atualizar status do agendamento.' });
+        }
+    };
     
-    // Lista Agendamentos (por exemplo, para o ADMIN)
+    // Lista Agendamentos
     public listar = async (req: Request, res: Response): Promise<Response> => {
         try {
             const agendamentos = await this.agendamentoService.listarAgendamentos();
             return res.status(200).json(agendamentos);
         } catch (error: any) {
             return res.status(500).json({ message: 'Falha ao listar agendamentos.' });
+        }
+    };
+
+    // Deletar Agendamento
+    public deletar = async (req: Request, res: Response): Promise<Response> => {
+        try {
+            const { id } = req.params;
+
+            await this.agendamentoService.deletarAgendamento(id);
+
+            // Resposta 204 No Content para deleção bem-sucedida
+            return res.status(204).send();
+        } catch (error: any) {
+            console.error('Erro ao deletar agendamento:', error.message);
+            return res.status(500).json({ message: `Falha ao deletar agendamento: ${error.message}` });
         }
     };
 }
