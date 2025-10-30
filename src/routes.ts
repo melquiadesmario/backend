@@ -4,11 +4,14 @@ import { roleMiddleware } from './middlewares/roleMiddleware';
 import { ServicoController } from './controllers/ServicoController'; 
 import { UsuarioController } from './controllers/UsuarioController';
 import { AgendamentoController } from './controllers/AgendamentoController';
+import { ProdutoController } from './controllers/ProdutoController';
+
 
 const router = Router();
 const servicoController = new ServicoController();
 const usuarioController = new UsuarioController();
 const agendamentoController = new AgendamentoController();
+const produtoController = new ProdutoController();
 
 // ------------------------------------
 // ROTAS DE USUÁRIO / AUTENTICAÇÃO (Públicas)
@@ -17,7 +20,7 @@ router.post('/usuarios/registrar', usuarioController.registrar);
 router.post('/usuarios/login', usuarioController.login);
 
 // Define as permissões para a manipulação de Serviços
-const ADMIN_ONLY = ['ADMIN']; // Apenas o cargo ADMIN pode manipular
+const ADMIN = ['ADMIN']; // Apenas o cargo ADMIN pode manipular
 const CLIENTE_ONLY = ['CLIENTE']; // Apenas o CLIENTE pode criar agendamentos
 const ADMIN_CLIENTE = ['ADMIN', 'CLIENTE']; // Admin e Cliente poderão deletar
 const ADMIN_BARBEIRO = ['ADMIN', 'BARBEIRO']; // Admin e Barbeiro poderão listar
@@ -28,9 +31,9 @@ const ADMIN_BARBEIRO = ['ADMIN', 'BARBEIRO']; // Admin e Barbeiro poderão lista
 // GET /servicos: Público para CLIENTES, BARBEIROS e ADMIN. Não precisa de authMiddleware.
 router.get('/servicos', servicoController.listar);
 // POST, PUT, DELETE: Apenas ADMIN
-router.post('/servicos', authMiddleware, servicoController.criar); 
-router.put('/servicos/:id', authMiddleware, servicoController.atualizar);
-router.delete('/servicos/:id', authMiddleware, servicoController.deletar);
+router.post('/servicos', authMiddleware, roleMiddleware(ADMIN), servicoController.criar); 
+router.put('/servicos/:id', authMiddleware, roleMiddleware(ADMIN), servicoController.atualizar);
+router.delete('/servicos/:id', authMiddleware, roleMiddleware(ADMIN), servicoController.deletar);
 
 // ------------------------------------
 // ROTAS DE AGENDAMENTO
@@ -43,5 +46,19 @@ router.get('/agendamentos', authMiddleware, roleMiddleware(ADMIN_BARBEIRO), agen
 router.put('/agendamentos/:id/status', authMiddleware, roleMiddleware(ADMIN_BARBEIRO), agendamentoController.atualizarStatus);
 // Exclusão: Apenas ADMIN ou CLIENTE (para cancelar)
 router.delete('/agendamentos/:id', authMiddleware, roleMiddleware(ADMIN_CLIENTE), agendamentoController.deletar);
+
+// ------------------------------------
+// ROTAS DE PRODUTO (CRUD)
+// ------------------------------------
+// Criar Produto (Apenas Admin)
+router.post('/produtos', authMiddleware, roleMiddleware(ADMIN), produtoController.criar);
+// Listar Todos (Apenas Admin)
+router.get('/produtos', authMiddleware, roleMiddleware(ADMIN), produtoController.listar);
+// Buscar por ID (Apenas Admin)
+router.get('/produtos/:id', authMiddleware, roleMiddleware(ADMIN), produtoController.buscarPorId);
+// Atualizar Produto (Apenas Admin)
+router.put('/produtos/:id', authMiddleware, roleMiddleware(ADMIN), produtoController.atualizar);
+// Deletar Produto (Apenas Admin)
+router.delete('/produtos/:id', authMiddleware, roleMiddleware(ADMIN), produtoController.deletar);
 
 export { router };
