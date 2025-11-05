@@ -6,6 +6,7 @@ import { UsuarioController } from './controllers/UsuarioController';
 import { AgendamentoController } from './controllers/AgendamentoController';
 import { ProdutoController } from './controllers/ProdutoController';
 import { VendaController } from './controllers/VendaController';
+import { RelatorioController } from './controllers/RelatorioController';
 
 const router = Router();
 const servicoController = new ServicoController();
@@ -13,6 +14,7 @@ const usuarioController = new UsuarioController();
 const agendamentoController = new AgendamentoController();
 const produtoController = new ProdutoController();
 const vendaController = new VendaController();
+const relatorioController = new RelatorioController();
 
 // ------------------------------------
 // ROTAS DE USUÁRIO / AUTENTICAÇÃO (Públicas)
@@ -69,5 +71,13 @@ router.delete('/produtos/:id', authMiddleware, roleMiddleware(ADMIN), produtoCon
 router.post('/vendas', authMiddleware, roleMiddleware(ADMIN_BARBEIRO), vendaController.criar);
 // Listar Todas as Vendas (Apenas Admin e Barbeiro)
 router.get('/vendas', authMiddleware, roleMiddleware(ADMIN_BARBEIRO), vendaController.listar);
+
+// ------------------------------------
+// ROTAS DE RELATÓRIOS (APENAS ADMIN)
+// ------------------------------------
+// GET /relatorios/faturamento?dataInicio=YYYY-MM-DD&dataFim=YYYY-MM-DD
+router.get('/relatorios/faturamento', authMiddleware, roleMiddleware(ADMIN), relatorioController.faturamento);
+// GET /relatorios/comissao
+router.get('/relatorios/comissao', authMiddleware, roleMiddleware(ADMIN), relatorioController.comissao);
 
 export { router };
