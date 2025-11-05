@@ -5,13 +5,14 @@ import { ServicoController } from './controllers/ServicoController';
 import { UsuarioController } from './controllers/UsuarioController';
 import { AgendamentoController } from './controllers/AgendamentoController';
 import { ProdutoController } from './controllers/ProdutoController';
-
+import { VendaController } from './controllers/VendaController';
 
 const router = Router();
 const servicoController = new ServicoController();
 const usuarioController = new UsuarioController();
 const agendamentoController = new AgendamentoController();
 const produtoController = new ProdutoController();
+const vendaController = new VendaController();
 
 // ------------------------------------
 // ROTAS DE USUÁRIO / AUTENTICAÇÃO (Públicas)
@@ -60,5 +61,13 @@ router.get('/produtos/:id', authMiddleware, roleMiddleware(ADMIN), produtoContro
 router.put('/produtos/:id', authMiddleware, roleMiddleware(ADMIN), produtoController.atualizar);
 // Deletar Produto (Apenas Admin)
 router.delete('/produtos/:id', authMiddleware, roleMiddleware(ADMIN), produtoController.deletar);
+
+// ------------------------------------
+// ROTAS DE VENDA
+// ------------------------------------
+// Criar Venda (Apenas Admin e Barbeiro)
+router.post('/vendas', authMiddleware, roleMiddleware(ADMIN_BARBEIRO), vendaController.criar);
+// Listar Todas as Vendas (Apenas Admin e Barbeiro)
+router.get('/vendas', authMiddleware, roleMiddleware(ADMIN_BARBEIRO), vendaController.listar);
 
 export { router };

@@ -93,4 +93,18 @@ export class ProdutoRepository {
             throw new Error('Falha ao deletar produto.');
         }
     }
+
+    // NOVO MÉTODO: Atualiza o estoque do produto (usando PostgreSQL's array function para performance)
+    async darBaixaEstoque(produtoId: string, quantidade: number): Promise<void> {
+    // Chamando a função SQL dar_baixa_estoque
+    const { error } = await supabase.rpc('dar_baixa_estoque', {
+        produto_uuid: produtoId, // Nome do parâmetro na função SQL
+        qtde: quantidade        // Nome do parâmetro na função SQL
+    });
+
+    if (error) {
+        console.error('ERRO SUPABASE (Baixa Estoque - RPC):', error);
+        throw new Error(`Falha ao dar baixa no estoque do produto ${produtoId}. Detalhe: ${error.message}`);
+    }
+}
 }

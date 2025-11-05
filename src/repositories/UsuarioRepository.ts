@@ -54,17 +54,22 @@ export class UsuarioRepository {
         return data; 
     }
 
-    async buscarPorId(id: string): Promise<Usuario | null> {
-        const { data, error } = await supabase
-            .from('usuario')
-            .select('*, cargo_id') // Selecionar tudo, incluindo o cargo_id
-            .eq('id', id)
-            .single();
+    async buscarPorId(id: string): Promise<any | null> { 
+    const { data, error } = await supabase
+        .from('usuario')
+        .select(`
+            *, 
+            cargo:cargo_id (nome)  // <--- AGORA BUSCA O NOME DO CARGO
+        `)
+        .eq('id', id)
+        .single();
 
-        if (error && error.code !== 'PGRST116') {
-            console.error('ERRO SUPABASE (Buscar Usuário por ID):', error);
-            throw new Error('Falha ao buscar usuário por ID.');
-        }
-        return data || null;
+    if (error && error.code !== 'PGRST116') {
+        console.error('ERRO SUPABASE (Buscar Usuário por ID):', error);
+        throw new Error('Falha ao buscar usuário por ID.');
     }
+    
+    // Retorna o objeto com a propriedade aninhada 'cargo: { nome: "..." }'
+    return data || null;
+}
 }
