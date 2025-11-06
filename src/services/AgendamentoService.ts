@@ -1,6 +1,7 @@
 import { AgendamentoRepository, AgendamentoInput, Agendamento } from "../repositories/AgendamentoRepository";
 import { ServicoRepository, Servico } from "../repositories/ServicoRepository"; // Precisamos do preço do serviço
 import { BarbeiroRepository } from "../repositories/BarbeiroRepository";
+import { ConflictError } from '../utils/errors';
 
 // Tipo de dados recebidos do Controller (cliente_id será injetado, valor_total será calculado)
 interface AgendamentoPayload {
@@ -34,16 +35,31 @@ export class AgendamentoService {
             throw new Error('Barbeiro selecionado não existe na tabela Barbeiro.'); 
         }
 
-        // 2. Buscar dados do Serviço (necessário para o preço)
+        // 2. Buscar dados do Serviço (necessário para o preço E DURAÇÃO)
         const servico: Servico | null = await this.servicoRepository.buscarPorId(data.servicoId);
         if (!servico) {
             throw new Error('Serviço selecionado não existe.');
         }
         
-        // 3. Lógica de Negócio: Calcular valor total
+        // 3. Obtém a duração (AGORA 'servico' ESTÁ DEFINIDO)
+        const duracaoMinutos = servico.duracao_minutos || 30; // Garante um default de 30 min se o campo for nulo
+     
+        // 4. Verificar a existência de conflito por INTERVALO de tempo
+        const conflitoExiste = await this.agendamentoRepository.verificarConflito(
+           data.barbeiroId, 
+           data.dataHoraAgendada,
+           duracaoMinutos
+        );
+        
+        if (conflitoExiste) {
+            // Lança um erro específico para conflito de recursos
+            throw new ConflictError("O barbeiro já possui um agendamento confirmado neste horário ou em um horário sobreposto.");
+        }
+
+        // 5. Lógica de Negócio: Calcular valor total
         const valor_total = servico.preco; // Se fosse múltiplos serviços, faríamos a soma.
 
-        // 4. Montar o objeto para o Repositório
+        // 6. Montar o objeto para o Repositório
         const agendamentoData: AgendamentoInput = {
             cliente_id: data.clienteId,
             barbeiro_id: data.barbeiroId,
@@ -53,15 +69,13 @@ export class AgendamentoService {
             status: STATUS_INICIAL
         };
 
-        // 5. Inserir no Banco
+        // 7. Inserir no Banco
         const novoAgendamento = await this.agendamentoRepository.criar(agendamentoData);
 
-        // Checagem:
+        // ... (Checagem e retorno) ...
         if (!novoAgendamento) {
-            // Se, por alguma razão (além do erro 500 do repositório), não retornar nada:
             throw new Error("Agendamento falhou por razão desconhecida.");
         }
-
         return novoAgendamento;
     }
     

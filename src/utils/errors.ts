@@ -22,4 +22,10 @@ export class ConflictError extends Error {
     }
 }
 
-// ... você pode adicionar outros como NotFoundError (404), UnauthorizedError (401), etc.
+// Opcional: Para erros de recurso não encontrado (404)
+export class NotFoundError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'NotFoundError';
+    }
+}

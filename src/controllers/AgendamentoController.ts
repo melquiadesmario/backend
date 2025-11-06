@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { AgendamentoService } from '../services/AgendamentoService';
+import { ConflictError, UnprocessableEntityError } from '../utils/errors';
 
 export class AgendamentoController {
     private agendamentoService: AgendamentoService;
@@ -43,14 +44,19 @@ export class AgendamentoController {
             return res.status(201).json(novoAgendamento);
 
         } catch (error: any) {
-            console.error('Erro ao criar agendamento:', error.message);
-
-            // Tratamento específico para erros de validação do Service
-            if (error.message.includes('não existe')) {
-                return res.status(400).json({ message: error.message });
+            // NOVO TRATAMENTO DE ERROS AQUI:
+            if (error instanceof ConflictError) {
+                // Se for um erro de conflito, retorna 409
+                return res.status(409).json({ message: error.message });
+            }
+            if (error instanceof UnprocessableEntityError) {
+                // Se for um erro de validação de input, retorna 422
+                return res.status(422).json({ message: error.message });
             }
             
-            return res.status(500).json({ message: `Falha ao agendar serviço: ${error.message}` });
+            // Para todos os outros erros (ex: erro de banco, erro de busca de serviço), retorna 500
+            console.error('Erro ao criar agendamento:', error);
+            return res.status(500).json({ message: "Falha interna ao agendar serviço." });
         }
     };
 
