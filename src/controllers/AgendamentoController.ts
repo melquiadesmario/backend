@@ -44,17 +44,30 @@ export class AgendamentoController {
             return res.status(201).json(novoAgendamento);
 
         } catch (error: any) {
-            // NOVO TRATAMENTO DE ERROS AQUI:
+            // 1. Tratamento para Erro de Conflito (STATUS 409)
             if (error instanceof ConflictError) {
-                // Se for um erro de conflito, retorna 409
                 return res.status(409).json({ message: error.message });
             }
-            if (error instanceof UnprocessableEntityError) {
-                // Se for um erro de validação de input, retorna 422
-                return res.status(422).json({ message: error.message });
-            }
             
-            // Para todos os outros erros (ex: erro de banco, erro de busca de serviço), retorna 500
+            // 2. NOVO TRATAMENTO: Erros de Validação (STATUS 400 ou 422)
+            // Assumimos que o Service lança 'Error' para regras de negócio (Barbeiro/Serviço Inexistente, Horário Comercial)
+            if (error instanceof Error) {
+                const validationMessages = [
+                    'Barbeiro selecionado não existe', 
+                    'Serviço selecionado não existe', 
+                    'Agendamentos devem começar', 
+                    'Agendamentos devem terminar'
+                ];
+
+                const isValidationError = validationMessages.some(msg => (error as Error).message.includes(msg));
+
+                if (isValidationError) {
+                     // Retorna 400 Bad Request para erros de validação do lado do cliente
+                    return res.status(400).json({ message: error.message }); 
+                }
+            }
+
+            // 3. Erro Genérico/Interno (Default: STATUS 500)
             console.error('Erro ao criar agendamento:', error);
             return res.status(500).json({ message: "Falha interna ao agendar serviço." });
         }

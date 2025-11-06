@@ -11,6 +11,11 @@ interface AgendamentoPayload {
     dataHoraAgendada: string;
 }
 
+// --- Horário Comercial ---
+const HORA_ABERTURA = 9;   // 09:00h
+const HORA_FECHAMENTO = 18; // 18:00h
+// ------------------------------------------
+
 // Define os status válidos para o sistema
 const STATUS_VALIDOS = ['PENDENTE', 'CONFIRMADO', 'CONCLUIDO', 'CANCELADO'];
 // Status inicial para novos agendamentos
@@ -43,6 +48,33 @@ export class AgendamentoService {
         
         // 3. Obtém a duração (AGORA 'servico' ESTÁ DEFINIDO)
         const duracaoMinutos = servico.duracao_minutos || 30; // Garante um default de 30 min se o campo for nulo
+
+        // ----------------------------------------------------------------------
+        // --- BLOCO DE VALIDAÇÃO: Horário Comercial ---
+        
+        const dataInicio = new Date(data.dataHoraAgendada);
+        const dataFim = new Date(dataInicio.getTime() + duracaoMinutos * 60000); 
+
+        // **USAR getHours() e getMinutes() para pegar o horário local do input.**
+        const horaInicio = dataInicio.getHours();
+        const minutoInicio = dataInicio.getMinutes(); 
+        
+        const horaFim = dataFim.getHours();
+        const minutoFim = dataFim.getMinutes();
+
+        // 1. Checa se o agendamento está antes do horário de abertura
+        if (horaInicio < HORA_ABERTURA) {
+            throw new Error(`Agendamentos devem começar após as ${HORA_ABERTURA}:00h.`);
+        }
+
+        // 2. Checa se o agendamento termina após o horário de fechamento
+        if (horaFim > HORA_FECHAMENTO || 
+            (horaFim === HORA_FECHAMENTO && minutoFim > 0)) 
+        {
+            const horarioFimString = `${String(horaFim).padStart(2, '0')}:${String(minutoFim).padStart(2, '0')}`;
+            throw new Error(`Agendamentos devem terminar até as ${HORA_FECHAMENTO}:00h. Este agendamento terminaria às ${horarioFimString}.`);
+        }
+        // ----------------------------------------------------------------------
      
         // 4. Verificar a existência de conflito por INTERVALO de tempo
         const conflitoExiste = await this.agendamentoRepository.verificarConflito(
