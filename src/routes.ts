@@ -8,76 +8,70 @@ import { ProdutoController } from './controllers/ProdutoController';
 import { VendaController } from './controllers/VendaController';
 import { RelatorioController } from './controllers/RelatorioController';
 
-const router = Router();
+const router = Router(); 
+
 const servicoController = new ServicoController();
 const usuarioController = new UsuarioController();
-const agendamentoController = new AgendamentoController();
+const agendamentoController = new AgendamentoController(); 
 const produtoController = new ProdutoController();
 const vendaController = new VendaController();
 const relatorioController = new RelatorioController();
 
+// Define as permissões
+const ADMIN = ['ADMIN'];
+const CLIENTE_ONLY = ['CLIENTE']; 
+const ADMIN_CLIENTE = ['ADMIN', 'CLIENTE']; 
+const ADMIN_BARBEIRO = ['ADMIN', 'BARBEIRO']; 
+
 // ------------------------------------
 // ROTAS DE USUÁRIO / AUTENTICAÇÃO (Públicas)
+// CORRIGIDO: Adicionando .bind() para garantir o contexto (this) no Controller
 // ------------------------------------
-router.post('/usuarios/registrar', usuarioController.registrar);
-router.post('/usuarios/login', usuarioController.login);
-
-// Define as permissões para a manipulação de Serviços
-const ADMIN = ['ADMIN']; // Apenas o cargo ADMIN pode manipular
-const CLIENTE_ONLY = ['CLIENTE']; // Apenas o CLIENTE pode criar agendamentos
-const ADMIN_CLIENTE = ['ADMIN', 'CLIENTE']; // Admin e Cliente poderão deletar
-const ADMIN_BARBEIRO = ['ADMIN', 'BARBEIRO']; // Admin e Barbeiro poderão listar
+router.post('/usuarios/registrar', usuarioController.registrar.bind(usuarioController));
+router.post('/usuarios/login', usuarioController.login.bind(usuarioController));
 
 // ------------------------------------
-// ROTAS DE SERVIÇO (CRUD) (PROTEGIDAS COM JWT E RBAC)
+// ROTAS DE SERVIÇO
 // ------------------------------------
-// GET /servicos: Público para CLIENTES, BARBEIROS e ADMIN. Não precisa de authMiddleware.
-router.get('/servicos', servicoController.listar);
-// POST, PUT, DELETE: Apenas ADMIN
-router.post('/servicos', authMiddleware, roleMiddleware(ADMIN), servicoController.criar); 
-router.put('/servicos/:id', authMiddleware, roleMiddleware(ADMIN), servicoController.atualizar);
-router.delete('/servicos/:id', authMiddleware, roleMiddleware(ADMIN), servicoController.deletar);
+// Criar Serviço (Apenas Admin)
+router.post('/servicos', authMiddleware, roleMiddleware(ADMIN), servicoController.criar.bind(servicoController));
+// Listar Todos (Público, para tela de agendamento)
+router.get('/servicos', servicoController.listar.bind(servicoController));
+// Buscar por ID (Público, para detalhes)
+router.get('/servicos/:id', servicoController.buscarPorId.bind(servicoController)); 
+// Atualizar Serviço (Apenas Admin)
+router.put('/servicos/:id', authMiddleware, roleMiddleware(ADMIN), servicoController.atualizar.bind(servicoController));
+// Deletar Serviço (Apenas Admin)
+router.delete('/servicos/:id', authMiddleware, roleMiddleware(ADMIN), servicoController.deletar.bind(servicoController));
 
 // ------------------------------------
-// ROTAS DE AGENDAMENTO
-// ------------------------------------
-// Criação: Apenas CLIENTE
-router.post('/agendamentos', authMiddleware, roleMiddleware(CLIENTE_ONLY), agendamentoController.criar);
-// Listagem: ADMIN ou BARBEIRO
-router.get('/agendamentos', authMiddleware, roleMiddleware(ADMIN_BARBEIRO), agendamentoController.listar);
-// Atualização de Status: Apenas ADMIN ou BARBEIRO
-router.put('/agendamentos/:id/status', authMiddleware, roleMiddleware(ADMIN_BARBEIRO), agendamentoController.atualizarStatus);
-// Exclusão: Apenas ADMIN ou CLIENTE (para cancelar)
-router.delete('/agendamentos/:id', authMiddleware, roleMiddleware(ADMIN_CLIENTE), agendamentoController.deletar);
-
-// ------------------------------------
-// ROTAS DE PRODUTO (CRUD)
+// ROTAS DE PRODUTO
 // ------------------------------------
 // Criar Produto (Apenas Admin)
-router.post('/produtos', authMiddleware, roleMiddleware(ADMIN), produtoController.criar);
+router.post('/produtos', authMiddleware, roleMiddleware(ADMIN), produtoController.criar.bind(produtoController));
 // Listar Todos (Apenas Admin)
-router.get('/produtos', authMiddleware, roleMiddleware(ADMIN), produtoController.listar);
+router.get('/produtos', authMiddleware, roleMiddleware(ADMIN), produtoController.listar.bind(produtoController));
 // Buscar por ID (Apenas Admin)
-router.get('/produtos/:id', authMiddleware, roleMiddleware(ADMIN), produtoController.buscarPorId);
+router.get('/produtos/:id', authMiddleware, roleMiddleware(ADMIN), produtoController.buscarPorId.bind(produtoController));
 // Atualizar Produto (Apenas Admin)
-router.put('/produtos/:id', authMiddleware, roleMiddleware(ADMIN), produtoController.atualizar);
+router.put('/produtos/:id', authMiddleware, roleMiddleware(ADMIN), produtoController.atualizar.bind(produtoController));
 // Deletar Produto (Apenas Admin)
-router.delete('/produtos/:id', authMiddleware, roleMiddleware(ADMIN), produtoController.deletar);
+router.delete('/produtos/:id', authMiddleware, roleMiddleware(ADMIN), produtoController.deletar.bind(produtoController));
 
 // ------------------------------------
 // ROTAS DE VENDA
 // ------------------------------------
 // Criar Venda (Apenas Admin e Barbeiro)
-router.post('/vendas', authMiddleware, roleMiddleware(ADMIN_BARBEIRO), vendaController.criar);
+router.post('/vendas', authMiddleware, roleMiddleware(ADMIN_BARBEIRO), vendaController.criar.bind(vendaController));
 // Listar Todas as Vendas (Apenas Admin e Barbeiro)
-router.get('/vendas', authMiddleware, roleMiddleware(ADMIN_BARBEIRO), vendaController.listar);
+router.get('/vendas', authMiddleware, roleMiddleware(ADMIN_BARBEIRO), vendaController.listar.bind(vendaController));
 
 // ------------------------------------
 // ROTAS DE RELATÓRIOS (APENAS ADMIN)
 // ------------------------------------
 // GET /relatorios/faturamento?dataInicio=YYYY-MM-DD&dataFim=YYYY-MM-DD
-router.get('/relatorios/faturamento', authMiddleware, roleMiddleware(ADMIN), relatorioController.faturamento);
+router.get('/relatorios/faturamento', authMiddleware, roleMiddleware(ADMIN), relatorioController.faturamento.bind(relatorioController));
 // GET /relatorios/comissao
-router.get('/relatorios/comissao', authMiddleware, roleMiddleware(ADMIN), relatorioController.comissao);
+router.get('/relatorios/comissao', authMiddleware, roleMiddleware(ADMIN), relatorioController.comissao.bind(relatorioController));
 
 export { router };

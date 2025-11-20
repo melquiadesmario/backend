@@ -1,15 +1,31 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "CommonJS",         
-    "moduleResolution": "node",   
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "skipLibCheck": true
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules"]
+    "compilerOptions": {
+        // --- Configurações Básicas ---
+        "target": "es2020", 
+        "module": "commonjs",
+        "rootDir": "./src", 
+        "outDir": "./dist",
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "strict": true,
+        "skipLibCheck": true,
+        
+        // --- Configurações Adicionais Importantes ---
+        "moduleResolution": "node", 
+        
+        // ** RESOLUÇÃO DO ERRO TS2339 **
+        // Define onde o TypeScript deve procurar por arquivos de declaração de tipos (.d.ts).
+        // Ele buscará em node_modules/@types E na nossa pasta src/@types.
+        "typeRoots": [
+            "./src/@types",
+            "./node_modules/@types"
+        ]
+    },
+    // Inclui todos os arquivos .ts dentro da pasta src
+    "include": [
+        "src/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
 }

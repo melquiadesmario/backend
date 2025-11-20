@@ -1,5 +1,7 @@
 import supabase from '../supabaseClient';
+import { PostgrestError } from '@supabase/supabase-js';
 
+// Interface para a entidade Serviço.
 export interface Servico { 
     id: string;
     nome: string;
@@ -9,11 +11,16 @@ export interface Servico {
     ativo: boolean;
 }
 
+// Interface para dados de entrada (sem ID e sem 'ativo' no momento da criação)
 export interface ServicoInput extends Omit<Servico, 'id' | 'ativo'> {}
 
 export class ServicoRepository {
 
-    async listar() {
+    /**
+     * Lista todos os serviços disponíveis.
+     * @returns Promise<Servico[]> - Lista de serviços.
+     */
+    async listar(): Promise<Servico[]> {
         
         const { data, error } = await supabase
             .from('servico') 
@@ -24,11 +31,16 @@ export class ServicoRepository {
             throw new Error('Falha ao obter dados do banco.');
         }
 
-        return data;
+        // Garante que o tipo de retorno é Servico[]
+        return data as Servico[];
     }
 
-    // Criar um novo serviço
-    async criar(servicoData: { nome: string, descricao: string, preco: number, duracao_minutos: number }) {
+    /**
+     * Cria um novo serviço no banco de dados.
+     * @param servicoData Dados do novo serviço.
+     * @returns Promise<Servico | null> - O serviço criado ou null em caso de falha silenciosa.
+     */
+    async criar(servicoData: ServicoInput): Promise<Servico | null> {
         const { data, error } = await supabase
             .from('servico')
             .insert([servicoData])
@@ -38,28 +50,40 @@ export class ServicoRepository {
             console.error('Erro no Supabase (Criar Servico):', error);
             throw new Error('Falha ao inserir serviço no banco.');
         }
-
-        return data ? data[0] : null;
+        
+        // Retorna o primeiro (e único) item inserido, ou null se data for vazio.
+        return (data && data.length > 0) ? (data[0] as Servico) : null;
     }
     
-    // Obter um serviço por ID
-    async buscarPorId(id: string) {
+    /**
+     * Obtém um serviço específico por ID.
+     * @param id ID do serviço a buscar.
+     * @returns Promise<Servico | null> - O serviço encontrado ou null se não existir.
+     */
+    async buscarPorId(id: string): Promise<Servico | null> {
         const { data, error } = await supabase
             .from('servico')
             .select('*')
             .eq('id', id)
             .single(); // Espera apenas um registro
 
+        // 'PGRST116' é o código de erro para "nenhum registro encontrado" em .single()
         if (error && error.code !== 'PGRST116') {
              console.error('Erro no Supabase (Buscar Servico):', error);
              throw new Error('Falha ao buscar serviço no banco.');
         }
         
-        return data;
+        // Se 'data' for null (por causa do erro PGRST116), retorna null. Caso contrário, retorna o serviço.
+        return data as Servico | null;
     }
 
-    // Atualizar um serviço
-    async atualizar(id: string, servicoData: Partial<{ nome: string, descricao: string, preco: number, duracao_minutos: number, ativo: boolean }>) {
+    /**
+     * Atualiza um serviço existente.
+     * @param id ID do serviço a atualizar.
+     * @param servicoData Dados parciais a serem atualizados.
+     * @returns Promise<Servico | null> - O serviço atualizado ou null se não encontrado.
+     */
+    async atualizar(id: string, servicoData: Partial<ServicoInput | { ativo: boolean }>): Promise<Servico | null> {
         const { data, error } = await supabase
             .from('servico')
             .update(servicoData)
@@ -71,11 +95,16 @@ export class ServicoRepository {
             throw new Error('Falha ao atualizar serviço no banco.');
         }
 
-        return data ? data[0] : null;
+        // Retorna o primeiro (e único) item atualizado, ou null.
+        return (data && data.length > 0) ? (data[0] as Servico) : null;
     }
     
-    // Deletar um serviço
-    async deletar(id: string) {
+    /**
+     * Deleta um serviço por ID.
+     * @param id ID do serviço a deletar.
+     * @returns Promise<void>
+     */
+    async deletar(id: string): Promise<void> {
         const { error } = await supabase
             .from('servico')
             .delete()
@@ -85,7 +114,6 @@ export class ServicoRepository {
             console.error('Erro no Supabase (Deletar Servico):', error);
             throw new Error('Falha ao deletar serviço no banco.');
         }
-
-        return true; // Sucesso na deleção
+        // Não é necessário retornar true/false, pois o erro é lançado se houver falha no banco.
     }
 }

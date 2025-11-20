@@ -1,63 +1,127 @@
 import { Request, Response } from 'express';
-import { ServicoService } from '../services/ServicoService';
+import { ServicoRepository } from '../repositories/ServicoRepository';
+import { StatusCodes } from 'http-status-codes';
 
+const servicoRepository = new ServicoRepository();
+
+/**
+ * Controller responsável por manipular as requisições HTTP para a entidade Serviço.
+ * As operações de banco de dados são delegadas ao ServicoRepository.
+ */
 export class ServicoController {
-    private servicoService: ServicoService;
 
-    constructor() {
-        this.servicoService = new ServicoService();
+    /**
+     * @route POST /servicos
+     * Cria um novo serviço (Admin Only).
+     */
+    public async criar(req: Request, res: Response) {
+        const servicoData = req.body; // Espera { nome, descricao, preco, duracao_minutos }
+
+        if (!servicoData.nome || !servicoData.preco || !servicoData.duracao_minutos) {
+            return res.status(StatusCodes.BAD_REQUEST).json({ 
+                message: 'Os campos nome, preco e duracao_minutos são obrigatórios.' 
+            });
+        }
+        
+        try {
+            const novoServico = await servicoRepository.criar(servicoData);
+            if (novoServico) {
+                return res.status(StatusCodes.CREATED).json(novoServico);
+            }
+            return res.status(StatusCodes.BAD_REQUEST).json({ message: 'Falha ao criar serviço.' });
+        } catch (error) {
+            console.error('Erro ao criar serviço:', error);
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+                message: 'Falha interna ao criar serviço.' 
+            });
+        }
     }
 
-    // GET /servicos
-    public listar = async (req: Request, res: Response): Promise<Response> => {
+    /**
+     * @route GET /servicos
+     * Lista todos os serviços ativos (Público).
+     */
+    public async listar(req: Request, res: Response) {
         try {
-            const servicos = await this.servicoService.listar();
-            return res.status(200).json(servicos);
-        } catch (error: any) {
-            // Retorna 500 para erros internos do banco
-            return res.status(500).json({ message: error.message });
+            const servicos = await servicoRepository.listar();
+            return res.status(StatusCodes.OK).json(servicos);
+        } catch (error) {
+            console.error('Erro ao listar serviços:', error);
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+                message: 'Falha interna ao listar serviços.' 
+            });
         }
-    };
+    }
 
-    // POST /servicos
-    public criar = async (req: Request, res: Response): Promise<Response> => {
-        try {
-            const novoServico = await this.servicoService.criar(req.body);
-            return res.status(201).json(novoServico); // Status 201: Criado
-        } catch (error: any) {
-            // 400 para erros de validação da regra de negócio
-            const statusCode = error.message.includes('Preço') ? 400 : 500;
-            return res.status(statusCode).json({ message: error.message });
-        }
-    };
+    /**
+     * @route GET /servicos/:id
+     * Busca um serviço por ID (Público).
+     * CORREÇÃO: Método que faltava e causava o erro no routes.ts.
+     */
+    public async buscarPorId(req: Request, res: Response) {
+        const { id } = req.params;
 
-    // PUT /servicos/:id
-    public atualizar = async (req: Request, res: Response): Promise<Response> => {
         try {
-            const { id } = req.params;
-            const servicoAtualizado = await this.servicoService.atualizar(id, req.body);
-            
-            // 404 se o serviço não for encontrado pelo ID
-            if (!servicoAtualizado) {
-                 return res.status(404).json({ message: `Serviço com ID ${id} não encontrado.` });
+            const servico = await servicoRepository.buscarPorId(id);
+
+            if (!servico) {
+                return res.status(StatusCodes.NOT_FOUND).json({ message: 'Serviço não encontrado.' });
             }
-            
-            return res.status(200).json(servicoAtualizado);
-        } catch (error: any) {
-            const statusCode = error.message.includes('encontrado') ? 404 : 400;
-            return res.status(statusCode).json({ message: error.message });
-        }
-    };
 
-    // DELETE /servicos/:id
-    public deletar = async (req: Request, res: Response): Promise<Response> => {
-        try {
-            const { id } = req.params;
-            await this.servicoService.deletar(id);
-            return res.status(204).send(); // Status 204: Sem conteúdo (sucesso na deleção)
-        } catch (error: any) {
-            const statusCode = error.message.includes('encontrado') ? 404 : 500;
-            return res.status(statusCode).json({ message: error.message });
+            return res.status(StatusCodes.OK).json(servico);
+        } catch (error) {
+            console.error('Erro ao buscar serviço por ID:', error);
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+                message: 'Falha interna ao buscar serviço.' 
+            });
         }
-    };
+    }
+
+    /**
+     * @route PUT /servicos/:id
+     * Atualiza um serviço (Admin Only).
+     */
+    public async atualizar(req: Request, res: Response) {
+        const { id } = req.params;
+        const servicoData = req.body;
+
+        try {
+            const servicoAtualizado = await servicoRepository.atualizar(id, servicoData);
+
+            if (!servicoAtualizado) {
+                return res.status(StatusCodes.NOT_FOUND).json({ message: 'Serviço não encontrado.' });
+            }
+
+            return res.status(StatusCodes.OK).json(servicoAtualizado);
+        } catch (error) {
+            console.error('Erro ao atualizar serviço:', error);
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+                message: 'Falha interna ao atualizar serviço.' 
+            });
+        }
+    }
+
+    /**
+     * @route DELETE /servicos/:id
+     * Deleta (ou desativa) um serviço (Admin Only).
+     */
+    public async deletar(req: Request, res: Response) {
+        const { id } = req.params;
+
+        try {
+            // Assumindo que 'deletar' no controller pode significar 'deletar' ou 'desativar'
+            // Vamos usar o método de desativação ou exclusão do repositório
+            
+            // Para garantir que a rota de delete do routes.ts funcione, chamamos o delete do repository
+            await servicoRepository.deletar(id); 
+            
+            // Sucesso sem conteúdo (padrão para DELETE)
+            return res.status(StatusCodes.NO_CONTENT).send(); 
+        } catch (error) {
+            console.error('Erro ao deletar serviço:', error);
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+                message: 'Falha interna ao deletar serviço.' 
+            });
+        }
+    }
 }

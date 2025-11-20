@@ -1,122 +1,139 @@
-import { Request, Response } from 'express';
-import { AgendamentoService } from '../services/AgendamentoService';
-import { ConflictError, UnprocessableEntityError } from '../utils/errors';
+import { Request, Response, Router } from 'express';
+import { AgendamentoRepository, AgendamentoComServico } from '../repositories/AgendamentoRepository';
+import { ServicoRepository } from '../repositories/ServicoRepository';
+import { StatusCodes } from 'http-status-codes';
+import { authMiddleware } from '../middlewares/authMiddleware';
+import { roleMiddleware } from '../middlewares/roleMiddleware';
+
+const agendamentoRepository = new AgendamentoRepository();
+const servicoRepository = new ServicoRepository(); 
+
+/**
+ * Função de auxílio para verificar se o agendamento está dentro do horário de funcionamento.
+ * NOTA: Esta é uma VERIFICAÇÃO SIMPLIFICADA para o teste 4B. 
+ */
+const verificarExpediente = (dataHora: Date): boolean => {
+    // IMPORTANTE: Trabalha com a hora UTC (padrão do Supabase/ISO 8601).
+    const hora = dataHora.getUTCHours();
+    const diaSemana = dataHora.getUTCDay(); // 0 = Domingo
+    
+    // Fechado no Domingo
+    if (diaSemana === 0) return false; 
+
+    // Supondo horário de funcionamento (UTC) de 09:00h às 19:00h.
+    // O agendamento deve COMEÇAR dentro deste período.
+    if (hora >= 9 && hora < 19) {
+        return true;
+    }
+    
+    return false;
+};
 
 export class AgendamentoController {
-    private agendamentoService: AgendamentoService;
+    
+    private ADMIN_CLIENTE = ['ADMIN', 'CLIENTE']; 
 
-    constructor() {
-        this.agendamentoService = new AgendamentoService();
-    }
+    async criarAgendamento(req: Request, res: Response): Promise<Response> {
+        const { cliente_id, barbeiro_id, servico_id, data_hora_agendada, valor_total, status } = req.body;
+        
+        // --- 1. Validação de Campos Obrigatórios e Tipos ---
+        if (!cliente_id || !barbeiro_id || !servico_id || !data_hora_agendada || !valor_total || !status) {
+             return res.status(StatusCodes.BAD_REQUEST).json({ 
+                 message: 'Dados obrigatórios ausentes.' 
+             });
+        }
+        
+        const dataAgendada = new Date(data_hora_agendada);
+        if (isNaN(dataAgendada.getTime())) {
+             return res.status(StatusCodes.BAD_REQUEST).json({ message: 'Formato de data_hora_agendada inválido. Use ISO 8601 (Ex: 2025-11-21T14:00:00.000Z).' });
+        }
+        if (typeof valor_total !== 'number' || valor_total <= 0) {
+             return res.status(StatusCodes.BAD_REQUEST).json({ message: 'Valor total inválido.' });
+        }
 
-    // POST /agendamentos
-    // Protegido por authMiddleware e roleMiddleware(['CLIENTE'])
-    public criar = async (req: Request, res: Response): Promise<Response> => {
         try {
-            // O clienteId vem do token JWT, injetado pelo authMiddleware.
-            // O TS precisa de checagem, mas sabemos que ele existe porque o middleware de Auth rodou.
-            const clienteId = req.usuario?.id; 
+            // --- 2. BUSCAR DURAÇÃO DO NOVO SERVIÇO ---
+            const servico = await servicoRepository.buscarPorId(servico_id);
+            if (!servico) {
+                return res.status(StatusCodes.NOT_FOUND).json({ message: 'Serviço não encontrado.' });
+            }
+            const duracaoNovoServico = servico.duracao_minutos;
 
-            // Se o authMiddleware rodou, o clienteId deve existir.
-            if (!clienteId) {
-                 // Esta falha só ocorreria se o authMiddleware falhasse catastroficamente
-                return res.status(401).json({ message: 'Cliente não autenticado ou token inválido.' });
+            // --- 3. VERIFICAR HORÁRIO DE FUNCIONAMENTO (TESTE 4B) ---
+            if (!verificarExpediente(dataAgendada)) {
+                 return res.status(StatusCodes.BAD_REQUEST).json({ 
+                     message: 'Agendamento fora do horário de expediente da barbearia (09:00h - 19:00h UTC).' 
+                 });
             }
 
-            // Dados do Body (o que o cliente informa)
-            const { barbeiroId, servicoId, dataHoraAgendada } = req.body;
-
-            // 1. Validação simples de campos obrigatórios
-            if (!barbeiroId || !servicoId || !dataHoraAgendada) {
-                return res.status(400).json({ 
-                    message: "Barbeiro, serviço e data/hora de agendamento são obrigatórios." 
-                });
-            }
+            // --- 4. VERIFICAR CONFLITO DE HORÁRIOS (Ajuste de precisão será o próximo passo) ---
             
-            // 2. Chamar o Service, injetando o ID do Cliente logado
-            const novoAgendamento = await this.agendamentoService.criarAgendamento({
-                clienteId: clienteId, // ID INJETADO AQUI
-                barbeiroId,
-                servicoId,
-                dataHoraAgendada
-            });
-
-            return res.status(201).json(novoAgendamento);
-
-        } catch (error: any) {
-            // 1. Tratamento para Erro de Conflito (STATUS 409)
-            if (error instanceof ConflictError) {
-                return res.status(409).json({ message: error.message });
-            }
+            const dataAgendamentoDia = dataAgendada.toISOString().split('T')[0];
+            const agendamentosExistentes = await agendamentoRepository.listarPorBarbeiroEData(
+                barbeiro_id, 
+                dataAgendamentoDia
+            );
             
-            // 2. NOVO TRATAMENTO: Erros de Validação (STATUS 400 ou 422)
-            // Assumimos que o Service lança 'Error' para regras de negócio (Barbeiro/Serviço Inexistente, Horário Comercial)
-            if (error instanceof Error) {
-                const validationMessages = [
-                    'Barbeiro selecionado não existe', 
-                    'Serviço selecionado não existe', 
-                    'Agendamentos devem começar', 
-                    'Agendamentos devem terminar'
-                ];
+            // Intervalo do NOVO Agendamento (em milissegundos)
+            const novoInicio = dataAgendada.getTime(); 
+            // Usa -1ms para que o FINAL do novo serviço não conflite com o INÍCIO exato de outro
+            const novoFim = novoInicio + (duracaoNovoServico * 60 * 1000) - 1; 
 
-                const isValidationError = validationMessages.some(msg => (error as Error).message.includes(msg));
+            // Iterar e checar a sobreposição
+            for (const agendamento of agendamentosExistentes) {
+                const duracaoExistente = agendamento.servico[0]?.duracao_minutos; 
+                
+                if (!duracaoExistente) continue; 
 
-                if (isValidationError) {
-                     // Retorna 400 Bad Request para erros de validação do lado do cliente
-                    return res.status(400).json({ message: error.message }); 
+                // Intervalo do AGENDAMENTO EXISTENTE (em milissegundos)
+                const inicioExistente = new Date(agendamento.data_hora_agendada).getTime();
+                // Usa -1ms para que o FINAL do serviço existente não conflite com o INÍCIO exato de outro
+                const fimExistente = inicioExistente + (duracaoExistente * 60 * 1000) - 1; 
+
+                // --- Lógica de Sobreposição (Interval Overlap) ---
+                // Verifica se os dois intervalos se cruzam
+                if (
+                    (novoInicio <= fimExistente) && 
+                    (novoFim >= inicioExistente)
+                ) {
+                    // SE HOUVER SOBREPOSIÇÃO, DISPARA O CONFLITO!
+                    return res.status(StatusCodes.CONFLICT).json({ 
+                        message: `Barbeiro indisponível. Conflito com agendamento existente das ${new Date(inicioExistente).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}h.` 
+                    });
                 }
             }
+            // --- FIM DA VERIFICAÇÃO DE CONFLITO ---
 
-            // 3. Erro Genérico/Interno (Default: STATUS 500)
+            // --- 5. CRIAR AGENDAMENTO ---
+            const novoAgendamento = await agendamentoRepository.criar({
+                cliente_id,
+                barbeiro_id,
+                servico_id,
+                data_hora_agendada,
+                valor_total,
+                status
+            });
+
+            return res.status(StatusCodes.CREATED).json(novoAgendamento);
+
+        } catch (error) {
             console.error('Erro ao criar agendamento:', error);
-            return res.status(500).json({ message: "Falha interna ao agendar serviço." });
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+                message: 'Falha interna ao criar agendamento.' 
+            });
         }
-    };
+    }
 
-    // Atualizar Status
-    public atualizarStatus = async (req: Request, res: Response): Promise<Response> => {
-        try {
-            const { id } = req.params; // ID do Agendamento vem do URL
-            const { status } = req.body; // Novo status vem do Body
+    public rotas(): Router {
+        const agendamentoRouter = Router();
 
-            if (!status) {
-                return res.status(400).json({ message: 'O novo status é obrigatório.' });
-            }
+        agendamentoRouter.post(
+            '/', 
+            authMiddleware, 
+            roleMiddleware(this.ADMIN_CLIENTE),
+            this.criarAgendamento.bind(this) 
+        );
 
-            const agendamentoAtualizado = await this.agendamentoService.atualizarStatus(id, status);
-
-            return res.status(200).json(agendamentoAtualizado);
-        } catch (error: any) {
-            console.error('Erro ao atualizar status do agendamento:', error.message);
-            if (error.message.includes('não encontrado') || error.message.includes('inválido')) {
-                return res.status(400).json({ message: error.message });
-            }
-            return res.status(500).json({ message: 'Falha ao atualizar status do agendamento.' });
-        }
-    };
-    
-    // Lista Agendamentos
-    public listar = async (req: Request, res: Response): Promise<Response> => {
-        try {
-            const agendamentos = await this.agendamentoService.listarAgendamentos();
-            return res.status(200).json(agendamentos);
-        } catch (error: any) {
-            return res.status(500).json({ message: 'Falha ao listar agendamentos.' });
-        }
-    };
-
-    // Deletar Agendamento
-    public deletar = async (req: Request, res: Response): Promise<Response> => {
-        try {
-            const { id } = req.params;
-
-            await this.agendamentoService.deletarAgendamento(id);
-
-            // Resposta 204 No Content para deleção bem-sucedida
-            return res.status(204).send();
-        } catch (error: any) {
-            console.error('Erro ao deletar agendamento:', error.message);
-            return res.status(500).json({ message: `Falha ao deletar agendamento: ${error.message}` });
-        }
-    };
+        return agendamentoRouter;
+    }
 }

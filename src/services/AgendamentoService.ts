@@ -1,5 +1,5 @@
-import { AgendamentoRepository, AgendamentoInput, Agendamento } from "../repositories/AgendamentoRepository";
-import { ServicoRepository, Servico } from "../repositories/ServicoRepository"; // Precisamos do preço do serviço
+import { AgendamentoRepository, AgendamentoInput, Agendamento, AgendamentoComServico } from "../repositories/AgendamentoRepository";
+import { ServicoRepository, Servico } from "../repositories/ServicoRepository"; 
 import { BarbeiroRepository } from "../repositories/BarbeiroRepository";
 import { ConflictError } from '../utils/errors';
 
@@ -12,7 +12,7 @@ interface AgendamentoPayload {
 }
 
 // --- Horário Comercial ---
-const HORA_ABERTURA = 9;   // 09:00h
+const HORA_ABERTURA = 9;   // 09:00h
 const HORA_FECHAMENTO = 18; // 18:00h
 // ------------------------------------------
 
@@ -46,7 +46,7 @@ export class AgendamentoService {
             throw new Error('Serviço selecionado não existe.');
         }
         
-        // 3. Obtém a duração (AGORA 'servico' ESTÁ DEFINIDO)
+        // 3. Obtém a duração 
         const duracaoMinutos = servico.duracao_minutos || 30; // Garante um default de 30 min se o campo for nulo
 
         // ----------------------------------------------------------------------
@@ -133,19 +133,36 @@ export class AgendamentoService {
         return agendamentoAtualizado;
     }
 
-    // Lista todos os agendamentos
+    // Lista todos os agendamentos (método genérico)
     async listarAgendamentos(): Promise<Agendamento[]> {
         return this.agendamentoRepository.listar();
     }
 
     // Deletar Agendamento
     async deletarAgendamento(agendamentoId: string): Promise<void> {
-        // No momento, apenas verificamos se a deleção falha no banco.
         // O controle de quem pode deletar será feito no Controller/Middleware.
         try {
             await this.agendamentoRepository.deletar(agendamentoId);
         } catch (error: any) {
             throw new Error(`Não foi possível deletar o agendamento: ${error.message}`);
         }
+    }
+
+    /**
+     * Busca todos os agendamentos confirmados/pendentes de um barbeiro para um dia.
+     * @param barbeiroId ID do Barbeiro
+     * @param data Data de busca (YYYY-MM-DD)
+     */
+    // Alteração: Tipagem do retorno para usar a interface AgendamentoComServico[]
+    async listarAgendamentosPorDia(barbeiroId: string, data: string): Promise<AgendamentoComServico[]> {
+        // Validação básica da data
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+            throw new Error("Formato de data inválido. Use YYYY-MM-DD.");
+        }
+
+        // A listagem retorna o objeto aninhado de serviço (duracao_minutos)
+        const agendamentos = await this.agendamentoRepository.listarPorBarbeiroEData(barbeiroId, data);
+        
+        return agendamentos;
     }
 }
